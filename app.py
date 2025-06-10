@@ -3,7 +3,6 @@ from src.predict import predict_fare
 from datetime import datetime
 import folium
 from streamlit_folium import folium_static
-from geopy.geocoders import Nominatim
 
 # Page Configuration
 st.set_page_config(page_title="🚖 NYC Taxi Fare Predictor", layout="wide", page_icon="🚖")
@@ -68,22 +67,22 @@ st.markdown("<h1 style='text-align:center;'>🚖 NYC Taxi Fare Predictor</h1>", 
 st.markdown("<p style='text-align:center;'>Estimate your cab fare instantly by entering trip details!</p>", unsafe_allow_html=True)
 st.markdown("<hr>", unsafe_allow_html=True)
 
-# Geocoder Setup
-geolocator = Nominatim(user_agent="nyc_taxi_app")
+# NYC Landmarks with Coordinates (latitude, longitude)
+places_coords = {
+    "Times Square": (40.758896, -73.985130),
+    "Central Park": (40.785091, -73.968285),
+    "Empire State Building": (40.748817, -73.985428),
+    "Wall Street": (40.706036, -74.008966),
+    "Brooklyn Bridge": (40.706085, -73.996864),
+    "JFK Airport": (40.641311, -73.778139),
+    "LaGuardia Airport": (40.776927, -73.873966),
+    "Statue of Liberty": (40.689249, -74.044500),
+    "Columbia University": (40.807536, -73.962573),
+    "Yankee Stadium": (40.829643, -73.926175)
+}
 
-def get_coordinates(place):
-    location = geolocator.geocode(place)
-    if location:
-        return location.latitude, location.longitude
-    else:
-        return None, None
-
-# NYC Landmarks (editable)
-places = [
-    "Times Square", "Central Park", "Empire State Building",
-    "Wall Street", "Brooklyn Bridge", "JFK Airport", "LaGuardia Airport",
-    "Statue of Liberty", "Columbia University", "Yankee Stadium"
-]
+# List of place names for the dropdown
+places = list(places_coords.keys())
 
 # Input Section
 with st.container():
@@ -92,18 +91,14 @@ with st.container():
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.subheader("📍 Pickup Location")
         pickup_place = st.selectbox("Select Pickup Place", places, index=0)
-        pickup_lat, pickup_lon = get_coordinates(pickup_place)
-        if not pickup_lat:
-            st.error("Could not find coordinates for selected pickup location.")
+        pickup_lat, pickup_lon = places_coords[pickup_place]
         st.markdown('</div>', unsafe_allow_html=True)
 
     with c2:
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.subheader("📍 Dropoff Location")
         dropoff_place = st.selectbox("Select Dropoff Place", places, index=1)
-        dropoff_lat, dropoff_lon = get_coordinates(dropoff_place)
-        if not dropoff_lat:
-            st.error("Could not find coordinates for selected dropoff location.")
+        dropoff_lat, dropoff_lon = places_coords[dropoff_place]
         st.markdown('</div>', unsafe_allow_html=True)
 
 # More Inputs
@@ -124,14 +119,11 @@ with st.container():
 # Map
 st.markdown('<div class="card">', unsafe_allow_html=True)
 st.subheader("🗺️ Trip Visualization")
-if pickup_lat and dropoff_lat:
-    m = folium.Map(location=[pickup_lat, pickup_lon], zoom_start=13, tiles="CartoDB dark_matter")
-    folium.Marker([pickup_lat, pickup_lon], popup="Pickup", icon=folium.Icon(color="green")).add_to(m)
-    folium.Marker([dropoff_lat, dropoff_lon], popup="Dropoff", icon=folium.Icon(color="red")).add_to(m)
-    folium.PolyLine([[pickup_lat, pickup_lon], [dropoff_lat, dropoff_lon]], color="blue", weight=4).add_to(m)
-    folium_static(m, height=300)
-else:
-    st.warning("Please select valid locations to display the map.")
+m = folium.Map(location=[pickup_lat, pickup_lon], zoom_start=13, tiles="CartoDB dark_matter")
+folium.Marker([pickup_lat, pickup_lon], popup="Pickup", icon=folium.Icon(color="green")).add_to(m)
+folium.Marker([dropoff_lat, dropoff_lon], popup="Dropoff", icon=folium.Icon(color="red")).add_to(m)
+folium.PolyLine([[pickup_lat, pickup_lon], [dropoff_lat, dropoff_lon]], color="blue", weight=4).add_to(m)
+folium_static(m, height=300)
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("<hr>", unsafe_allow_html=True)
@@ -139,27 +131,24 @@ st.markdown("<hr>", unsafe_allow_html=True)
 # Predict Button
 st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
 if st.button("💸 Predict Fare"):
-    if pickup_lat and dropoff_lat:
-        fare = predict_fare(pickup_lon, pickup_lat, dropoff_lon, dropoff_lat, passenger_count, pickup_datetime)
-        st.markdown(f"<h2 style='text-align:center; color:#2ecc71;'>Estimated Fare: ${fare:.2f}</h2>", unsafe_allow_html=True)
+    fare = predict_fare(pickup_lon, pickup_lat, dropoff_lon, dropoff_lat, passenger_count, pickup_datetime)
+    st.markdown(f"<h2 style='text-align:center; color:#2ecc71;'>Estimated Fare: ${fare:.2f}</h2>", unsafe_allow_html=True)
 
-        # Breakdown
-        base = 2.5
-        dist = fare * 0.7
-        time = fare * 0.3
-        st.markdown("""
-        <div class="card">
-        <h4>📊 Fare Breakdown</h4>
-        <ul>
-            <li>Base Fare: ${:.2f}</li>
-            <li>Distance Component: ${:.2f}</li>
-            <li>Time Component: ${:.2f}</li>
-            <li><strong>Total Fare: ${:.2f}</strong></li>
-        </ul>
-        </div>
-        """.format(base, dist, time, fare), unsafe_allow_html=True)
-    else:
-        st.error("Invalid coordinates. Please select valid locations.")
+    # Breakdown
+    base = 2.5
+    dist = fare * 0.7
+    time = fare * 0.3
+    st.markdown("""
+    <div class="card">
+    <h4>📊 Fare Breakdown</h4>
+    <ul>
+        <li>Base Fare: ${:.2f}</li>
+        <li>Distance Component: ${:.2f}</li>
+        <li>Time Component: ${:.2f}</li>
+        <li><strong>Total Fare: ${:.2f}</strong></li>
+    </ul>
+    </div>
+    """.format(base, dist, time, fare), unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
 # Footer
