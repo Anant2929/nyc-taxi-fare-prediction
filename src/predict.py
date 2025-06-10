@@ -1,8 +1,22 @@
 import pickle
 import pandas as pd
 from .preprocess import preprocess_data, input_cols
+import requests
+import os
 
-def load_model(model_path='src/model.pkl'):
+def download_model(url, local_path='model.pkl'):
+    if not os.path.exists(local_path):
+        response = requests.get(url)
+        if response.status_code == 200:
+            with open(local_path, 'wb') as f:
+                f.write(response.content)
+        else:
+            raise Exception(f"Failed to download model from {url}. Status code: {response.status_code}")
+    return local_path
+
+def load_model():
+    model_url = "https://drive.google.com/uc?export=download&id=1I5mJ9cpfyhuHLRrF0jNhs2M7mlSnVvSm"
+    model_path = download_model(model_url)
     with open(model_path, 'rb') as f:
         model = pickle.load(f)
     return model
